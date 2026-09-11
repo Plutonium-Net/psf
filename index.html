@@ -27,6 +27,7 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
 <script>
 (async()=>{
   "use strict";
+  
   const ROOT="https://cdn.jsdelivr.net/gh/Plutonium-Net/Plutonium@main/";
   const INDEX=ROOT+"index.html";
   const status=document.getElementById("plu-status");
@@ -35,15 +36,16 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
   const setStatus=s=>status.textContent=s;
   function abs(path){
     if(!path) return path;
-    if(/^(?:[a-z]+:)?\/\//i.test(path) || path.startsWith("data:") || path.startsWith("blob:")) return path;
-    path=path.replace(/^\\.\//,"");
-    path=path.replace(/^\//,"");
+    if(/^(?:[a-z]+:)?\/\//.test(path)) return path;
+    path=path.replace(/^\.\//, "");
+    path=path.replace(/^\//, "");
     return ROOT+path;
   }
   function rewriteCss(css){
     return css;
   }
   function makeStub(){
+    
     window.__PLU_SINGLE_FILE__=true;
     window.__PLU_DISABLE_ACCOUNTS__=true;
     window.__PLU_DISABLE_AI__=true;
@@ -61,8 +63,9 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
     if(!window.accountManager) window.accountManager={
       currentUser:null,user:null,isSignedIn:false,
       async init(){},async signIn(){throw new Error("Accounts are disabled.")},
-      async signOut(){},open(){},close(){}
+      async signOut(){},recordRecent(){},open(){},close(){}
     };
+    
     window.__pluAiDisabledMessage=()=>{
       alert("AI is disabled in this single-file build.");
     };
@@ -74,6 +77,7 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
     const text=await res.text();
     setStatus("Installing the official Plutonium shell…");
     const doc=new DOMParser().parseFromString(text,"text/html");
+    
     document.title=doc.title||"Plutonium Network";
     for(const el of [...doc.head.querySelectorAll("meta")]){
       if(!el.hasAttribute("charset") && el.getAttribute("name")!=="viewport"){
@@ -82,6 +86,7 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
         document.head.appendChild(n);
       }
     }
+    
     const styles=[...doc.head.querySelectorAll('link[rel="stylesheet"]')];
     for(const old of styles){
       const href=old.getAttribute("href");
@@ -90,6 +95,7 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
       l.rel="stylesheet"; l.href=abs(href);
       document.head.appendChild(l);
     }
+    
     const extCss="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css";
     if(![...document.styleSheets].some(x=>x.href===extCss)){
       const l=document.createElement("link");l.rel="stylesheet";l.href=extCss;document.head.appendChild(l);
@@ -97,7 +103,13 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
     const marked=document.createElement("script");
     marked.src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js";
     document.head.appendChild(marked);
+    
     document.body.innerHTML=doc.body.innerHTML;
+    
+    
+    
+    
+    
     window.__pluOpenRepositoryPage = function (raw) {
       try {
         const url = new URL(raw, ROOT);
@@ -123,6 +135,7 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
         return false;
       }
     };
+    
     document.addEventListener("click", function (event) {
       const anchor = event.target && event.target.closest ? event.target.closest("a[href]") : null;
       if (!anchor) return;
@@ -138,6 +151,8 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
         window.__pluOpenRepositoryPage(href);
       } catch {}
     }, true);
+    
+    
     window.__pluSafeNavigate = function (raw) {
       try {
         const url = new URL(String(raw), location.href);
@@ -153,17 +168,19 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
         return /\.html$/i.test(url.pathname) ? url.href : raw;
       } catch { return raw; }
     };
+    
     const nativeOpen = window.open.bind(window);
     window.open = function(raw, target, features) {
       if (window.__pluSafeNavigate(raw)) return null;
       return nativeOpen(raw, target, features);
     };
+    
     const attrs=["src","href","poster","data-src","data-background","data-image"];
     for(const el of document.body.querySelectorAll("*")){
       for(const a of attrs){
         if(!el.hasAttribute(a))continue;
         const v=el.getAttribute(a);
-        if(v && !/^(?:[a-z]+:)?\/\//i.test(v) && !v.startsWith("#") && !v.startsWith("data:")){
+        if(v && !/^(?:[a-z]+:)?\/\//.test(v)) {
           el.setAttribute(a,abs(v));
         }
       }
@@ -290,16 +307,18 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
       let src=old.getAttribute("src");
       if(!src)continue;
       if(skip.has(src))continue;
-      if(src==="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js")continue;
       if(src==="https://unpkg.com/draggabilly@2.2.0/dist/draggabilly.pkgd.min.js"){
         const s=document.createElement("script");
         s.src=src;
         await new Promise((ok,bad)=>{s.onload=ok;s.onerror=()=>bad(new Error("Failed to load Draggabilly"));document.head.appendChild(s)});
         continue;
       }
+      
       if(src.startsWith("/")) src=src.slice(1);
       if(!/^(?:https?:|data:|blob:)/i.test(src)) src=ROOT+src;
       setStatus("Loading "+src.split("/").slice(-1)[0]+"…");
+      
+      
       let source;
       try {
         const r = await fetch(src, {cache:"no-store"});
@@ -307,6 +326,19 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
         source = await r.text();
       } catch (e) {
         throw new Error("Failed to fetch "+src+": "+e.message);
+      }
+      
+      
+      
+      
+      
+      
+      if (/\/js\/games\.js(?:\?|$)/i.test(src)) {
+        source = source
+          .replace(/typeof\s+accountManager\s*!==\s*["']undefined["']\s*&&\s*accountManager\.recordRecent/g,
+                   'window.accountManager && typeof window.accountManager.recordRecent === "function"')
+          .replace(/\baccountManager\.recordRecent\s*\(/g,
+                   'window.accountManager.recordRecent(');
       }
       if (/\/(?:net|network)\.js(?:\?|$)/i.test(src)) {
         const noop = (name) => new RegExp(
@@ -329,7 +361,7 @@ html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family
         "window.__pluSafeNavigate($2)"
       );
       const s=document.createElement("script");
-      s.textContent = source;
+      s.textContent = source + "\n//# sourceURL=" + src;
       s.async=false;
       document.body.appendChild(s);
     }
