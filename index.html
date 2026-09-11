@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plutonium Network — Single File</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2309090d'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-size='38' fill='%23e8175d'%3EP%3C/text%3E%3C/svg%3E">
+<style>
+html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family:Arial,sans-serif}
+#plu-loader{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#09090d}
+#plu-loader .box{text-align:center;max-width:520px;padding:32px}
+#plu-loader .logo{font-size:38px;font-weight:700;letter-spacing:.02em}
+#plu-loader .sub{margin-top:10px;opacity:.65;font-size:14px}
+#plu-loader .bar{height:3px;background:#292933;border-radius:9px;margin-top:24px;overflow:hidden}
+#plu-loader .bar i{display:block;width:35%;height:100%;background:#e8175d;border-radius:9px;animation:p 1.1s infinite ease-in-out}
+@keyframes p{0%{transform:translateX(-120%)}100%{transform:translateX(420%)}}
+#plu-error{display:none;margin-top:20px;color:#ff8aa8;font-size:13px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div id="plu-loader"><div class="box">
+<div class="logo">Plutonium</div>
+<div class="sub" id="plu-status">Loading the official Plutonium application…</div>
+<div class="bar"><i></i></div>
+<div id="plu-error"></div>
+</div></div>
+<script>
+(async()=>{
+  "use strict";
+  const ROOT="https://cdn.jsdelivr.net/gh/Plutonium-Net/Plutonium@main/";
+  const INDEX=ROOT+"index.html";
+  const status=document.getElementById("plu-status");
+  const error=document.getElementById("plu-error");
+  const loader=document.getElementById("plu-loader");
+  const setStatus=s=>status.textContent=s;
+  function abs(path){
+    if(!path) return path;
+    if(/^(?:[a-z]+:)?\/\//i.test(path) || path.startsWith("data:") || path.startsWith("blob:")) return path;
+    path=path.replace(/^\\.\//,"");
+    path=path.replace(/^\//,"");
+    return ROOT+path;
+  }
+  function rewriteCss(css){
+    return css;
+  }
+  function makeStub(){
+    window.__PLU_SINGLE_FILE__=true;
+    window.__PLU_DISABLE_ACCOUNTS__=true;
+    window.__PLU_DISABLE_AI__=true;
+    window.__PLU_DISABLE_PROXY__=true;
+    if(!window.PlutoniumStore) window.PlutoniumStore={
+      currentUser:null, user:null, initialized:Promise.resolve(),
+      onAuthStateChanged(fn){ try{fn(null)}catch{} return ()=>{} },
+      isSignedIn(){return false},
+      async signIn(){throw new Error("Accounts are disabled in the single-file build.")},
+      async signOut(){},
+      async get(){return null},
+      async set(){return false},
+      async delete(){return false}
+    };
+    if(!window.accountManager) window.accountManager={
+      currentUser:null,user:null,isSignedIn:false,
+      async init(){},async signIn(){throw new Error("Accounts are disabled.")},
+      async signOut(){},open(){},close(){}
+    };
+    window.__pluAiDisabledMessage=()=>{
+      alert("AI is disabled in this single-file build.");
+    };
+  }
+  async function boot(){
+    setStatus("Fetching the official application shell…");
+    const res=await fetch(INDEX,{cache:"no-store"});
+    if(!res.ok) throw new Error("Could not fetch Plutonium index.html ("+res.status+").");
+    const text=await res.text();
+    setStatus("Installing the official Plutonium shell…");
+    const doc=new DOMParser().parseFromString(text,"text/html");
+    document.title=doc.title||"Plutonium Network";
+    for(const el of [...doc.head.querySelectorAll("meta")]){
+      if(!el.hasAttribute("charset") && el.getAttribute("name")!=="viewport"){
+        const n=document.createElement("meta");
+        for(const a of el.attributes)n.setAttribute(a.name,a.value);
+        document.head.appendChild(n);
+      }
+    }
+    const styles=[...doc.head.querySelectorAll('link[rel="stylesheet"]')];
+    for(const old of styles){
+      const href=old.getAttribute("href");
+      if(!href)continue;
+      const l=document.createElement("link");
+      l.rel="stylesheet"; l.href=abs(href);
+      document.head.appendChild(l);
+    }
+    const extCss="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css";
+    if(![...document.styleSheets].some(x=>x.href===extCss)){
+      const l=document.createElement("link");l.rel="stylesheet";l.href=extCss;document.head.appendChild(l);
+    }
+    const marked=document.createElement("script");
+    marked.src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js";
+    document.head.appendChild(marked);
+    document.body.innerHTML=doc.body.innerHTML;
+    window.__pluOpenRepositoryPage = function (raw) {
+      try {
+        const url = new URL(raw, ROOT);
+        const path = url.pathname.toLowerCase();
+        if (!/\.html$/.test(path)) return false;
+        const frame = document.getElementById("page-frame");
+        if (!frame) return false;
+        const target = url.href;
+        const loading = document.getElementById("page-loading-screen");
+        const loadingUrl = document.getElementById("page-loading-url");
+        const newTab = document.getElementById("new-tab-page");
+        if (newTab) newTab.style.display = "none";
+        if (loading) loading.style.display = "flex";
+        if (loadingUrl) loadingUrl.textContent = url.pathname.split("/").pop();
+        frame.style.display = "none";
+        loadRepositoryHtmlFrame(frame, target).catch(err => {
+          console.warn("[Plutonium single-file] Repository HTML failed to load", target, err);
+          frame.src = target;
+        });
+        return true;
+      } catch (e) {
+        console.warn("[Plutonium single-file] Could not open repository page", raw, e);
+        return false;
+      }
+    };
+    document.addEventListener("click", function (event) {
+      const anchor = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || /^(?:mailto:|tel:|javascript:|data:|blob:)/i.test(href)) return;
+      try {
+        const url = new URL(href, location.href);
+        const isRepoHtml = /\.html(?:[?#].*)?$/i.test(url.pathname) &&
+          (url.origin === location.origin || url.origin === new URL(ROOT).origin);
+        if (!isRepoHtml) return;
+        event.preventDefault();
+        event.stopPropagation();
+        window.__pluOpenRepositoryPage(href);
+      } catch {}
+    }, true);
+    window.__pluSafeNavigate = function (raw) {
+      try {
+        const url = new URL(String(raw), location.href);
+        if (/\.html(?:[?#].*)?$/i.test(url.pathname)) {
+          return window.__pluOpenRepositoryPage(url.href);
+        }
+      } catch {}
+      return false;
+    };
+    window.__pluResolveRepositoryHtml = function (raw) {
+      try {
+        const url = new URL(raw, ROOT);
+        return /\.html$/i.test(url.pathname) ? url.href : raw;
+      } catch { return raw; }
+    };
+    const nativeOpen = window.open.bind(window);
+    window.open = function(raw, target, features) {
+      if (window.__pluSafeNavigate(raw)) return null;
+      return nativeOpen(raw, target, features);
+    };
+    const attrs=["src","href","poster","data-src","data-background","data-image"];
+    for(const el of document.body.querySelectorAll("*")){
+      for(const a of attrs){
+        if(!el.hasAttribute(a))continue;
+        const v=el.getAttribute(a);
+        if(v && !/^(?:[a-z]+:)?\/\//i.test(v) && !v.startsWith("#") && !v.startsWith("data:")){
+          el.setAttribute(a,abs(v));
+        }
+      }
+      if(el.hasAttribute("style")){
+        el.style.cssText=el.getAttribute("style").replace(
+          /url\\((['"]?)(?!https?:|data:|blob:|#)([^'")]+)\1\\)/gi,
+          (_,q,p)=>"url("+q+abs(p)+q+")"
+        );
+      }
+    }
+    async function loadRepositoryHtmlFrame(frame, raw) {
+      const url = new URL(raw, ROOT);
+      const r = await fetch(url.href, {cache:"no-store"});
+      if (!r.ok) throw new Error("HTTP "+r.status+" while loading "+url.href);
+      const html = await r.text();
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      const rootUrl = new URL(url.href);
+      const resolve = value => {
+        if (!value) return value;
+        value = value.trim();
+        if (/^(?:[a-z][a-z0-9+.-]*:|#|\/\/)/i.test(value)) return value;
+        try { return new URL(value, rootUrl).href; } catch { return value; }
+      };
+      for (const el of parsed.querySelectorAll("[src], [href], [poster], [data-src], [data-background], [data-image]")) {
+        for (const attr of ["src","href","poster","data-src","data-background","data-image"]) {
+          if (el.hasAttribute(attr)) el.setAttribute(attr, resolve(el.getAttribute(attr)));
+        }
+      }
+      for (const el of parsed.querySelectorAll("[style]")) {
+        el.setAttribute("style", el.getAttribute("style").replace(
+          /url\((['\"]?)(?!https?:|data:|blob:|#)([^'\")]+)\1\)/gi,
+          (_, q, value) => "url("+q+resolve(value)+q+")"
+        ));
+      }
+      for (const style of parsed.querySelectorAll("style")) {
+        style.textContent = style.textContent.replace(
+          /url\((['\"]?)(?!https?:|data:|blob:|#)([^'\")]+)\1\)/gi,
+          (_, q, value) => "url("+q+resolve(value)+q+")"
+        );
+      }
+      for (const link of parsed.querySelectorAll('link[href]')) {
+        link.href = resolve(link.getAttribute('href'));
+      }
+      let base = parsed.head.querySelector('base');
+      if (!base) {
+        base = parsed.createElement('base');
+        parsed.head.prepend(base);
+      }
+      base.href = rootUrl.href;
+      const blob = new Blob(["<!doctype html>\n" + parsed.documentElement.outerHTML], {type:"text/html"});
+      const blobUrl = URL.createObjectURL(blob);
+      const previous = frame.dataset.pluBlobUrl;
+      if (previous) URL.revokeObjectURL(previous);
+      frame.dataset.pluBlobUrl = blobUrl;
+      frame.src = blobUrl;
+      return blobUrl;
+    }
+    const pluAssetURL = (value, kind) => {
+      if (!value || typeof value !== "string") return value;
+      const v = value.trim();
+      if (!v || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|data:|blob:)/i.test(v)) return value;
+      const clean = v.replace(/^\.\//, "").replace(/^\//, "");
+      const isRepoAsset = /^(?:css|js|img|fonts|data|bg|core|runtime|bridge|mesh|assets)\//i.test(clean)
+        || /\.(?:css|js|mjs|json|wasm|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|otf|html)(?:[?#].*)?$/i.test(clean);
+      if (!isRepoAsset) return value;
+      return ROOT + clean;
+    };
+    const nativeSetAttribute = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function(name, value) {
+      const n = String(name).toLowerCase();
+      if (n === "src" || n === "href" || n === "poster" || n === "data-src" || n === "data-background" || n === "data-image") {
+        value = pluAssetURL(String(value), n);
+      }
+      return nativeSetAttribute.call(this, name, value);
+    };
+    function patchURLProperty(proto, prop) {
+      try {
+        const desc = Object.getOwnPropertyDescriptor(proto, prop);
+        if (!desc || !desc.set || !desc.get || !desc.configurable) return;
+        Object.defineProperty(proto, prop, {
+          configurable: true,
+          enumerable: desc.enumerable,
+          get: desc.get,
+          set(value) { return desc.set.call(this, pluAssetURL(String(value), prop)); }
+        });
+      } catch (e) {
+        console.warn("[Plutonium single-file] Could not patch", prop, e);
+      }
+    }
+    patchURLProperty(HTMLScriptElement.prototype, "src");
+    patchURLProperty(HTMLLinkElement.prototype, "href");
+    patchURLProperty(HTMLImageElement.prototype, "src");
+    patchURLProperty(HTMLImageElement.prototype, "srcset");
+    patchURLProperty(HTMLIFrameElement.prototype, "src");
+    patchURLProperty(HTMLMediaElement.prototype, "poster");
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = function(input, init) {
+      try {
+        const raw = typeof input === "string" ? input : input?.url;
+        const resolved = pluAssetURL(raw, "fetch");
+        if (resolved && resolved !== raw) {
+          if (typeof input === "string") input = resolved;
+          else input = new Request(resolved, input);
+        }
+      } catch {}
+      return nativeFetch(input, init);
+    };
+    const bg=document.getElementById("browser-bg-frame");
+    if(bg) {
+      try { await loadRepositoryHtmlFrame(bg, "bg.html"); }
+      catch (e) { console.warn("[Plutonium single-file] Background failed to load", e); }
+    }
+    makeStub();
+    const scripts=[...doc.body.querySelectorAll("script[src]")];
+    const skip=new Set([
+      "js/pwa.js",
+      "js/version.js?v=8",
+      "js/cloud-store.js?v=2",
+      "js/cloud-store-config.js",
+      "js/account.js?v=29",
+      "js/onboarding-redirect.js"
+    ]);
+    for(const old of scripts){
+      let src=old.getAttribute("src");
+      if(!src)continue;
+      if(skip.has(src))continue;
+      if(src==="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js")continue;
+      if(src==="https://unpkg.com/draggabilly@2.2.0/dist/draggabilly.pkgd.min.js"){
+        const s=document.createElement("script");
+        s.src=src;
+        await new Promise((ok,bad)=>{s.onload=ok;s.onerror=()=>bad(new Error("Failed to load Draggabilly"));document.head.appendChild(s)});
+        continue;
+      }
+      if(src.startsWith("/")) src=src.slice(1);
+      if(!/^(?:https?:|data:|blob:)/i.test(src)) src=ROOT+src;
+      setStatus("Loading "+src.split("/").slice(-1)[0]+"…");
+      let source;
+      try {
+        const r = await fetch(src, {cache:"no-store"});
+        if (!r.ok) throw new Error("HTTP "+r.status);
+        source = await r.text();
+      } catch (e) {
+        throw new Error("Failed to fetch "+src+": "+e.message);
+      }
+      if (/\/(?:net|network)\.js(?:\?|$)/i.test(src)) {
+        const noop = (name) => new RegExp(
+          "async\\s+function\\s+" + name + "\\s*\\(\\)\\s*\\{[\\s\\S]*?\\n\\}",
+          "m"
+        );
+        source = source
+          .replace(noop("initCore"), "async function initCore() { return false }" )
+          .replace(noop("initRuntime"), "async function initRuntime() { return false }" )
+          .replace(noop("initBridge"), "async function initBridge() { return false }" )
+          .replace(noop("initNetStack"), "async function initNetStack() { return false }" )
+          .replace(noop("runNetInit"), "async function runNetInit() { return false }" );
+      }
+      source = source
+        .replace(/(?:window\.)?location\.replace\s*\(/g, "window.__pluSafeNavigate(")
+        .replace(/(?:window\.)?location\.assign\s*\(/g, "window.__pluSafeNavigate(")
+        .replace(/window\.open\s*\(/g, "window.open(");
+      source = source.replace(
+        /((?:window\.)?location\.href)\s*=\s*([^;\n]+)/g,
+        "window.__pluSafeNavigate($2)"
+      );
+      const s=document.createElement("script");
+      s.textContent = source;
+      s.async=false;
+      document.body.appendChild(s);
+    }
+    for(const id of ["btn-user-page","home-acct-signin-cta","acct-google-btn","acct-github-btn","acct-auth-submit"]){
+      const el=document.getElementById(id);
+      if(el){
+        el.addEventListener("click",e=>{
+          e.preventDefault();e.stopImmediatePropagation();
+          alert("Accounts are disabled in this single-file build.");
+        },true);
+      }
+    }
+    loader.remove();
+  }
+  try{ await boot(); }
+  catch(e){
+    console.error(e);
+    status.textContent="Plutonium could not start.";
+    error.style.display="block";
+    error.textContent=String(e?.stack||e);
+  }
+})();
+</script>
+</body>
+</html>
