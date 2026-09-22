@@ -1,0 +1,725 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xhtml="http://www.w3.org/1999/xhtml"
+     width="100vw" height="100vh"
+     style="display:block;width:100vw;height:100vh;margin:0;padding:0;background:#08060a;overflow:hidden">
+  <foreignObject x="0" y="0" width="100%" height="100%">
+    <xhtml:html>
+      <xhtml:head>
+        <xhtml:meta charset="utf-8"/>
+        <xhtml:meta name="viewport" content="width=device-width,initial-scale=1"/>
+        <xhtml:title>Plutonium Network</xhtml:title>
+        <xhtml:style>
+          html,body{margin:0;padding:0;width:100%;height:100%;display:block;background:#08060a;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+          body{overflow:hidden}
+          #plu-root{position:relative;width:100%;height:100%;overflow:hidden}
+          #plu-loader{position:absolute;inset:0;display:grid;place-items:center;background:#08060a;z-index:2147483647}
+          #plu-loader-inner{text-align:center;opacity:.9}
+          #plu-loader-title{font-size:28px;font-weight:700;letter-spacing:.02em}
+          #plu-loader-sub{margin-top:10px;font-size:13px;opacity:.55}
+          #plu-loader-dot{display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:#e8175d;animation:plu-pulse 1s infinite}
+          @keyframes plu-pulse{50%{opacity:.25;transform:scale(.7)}}
+          #plu-svg-error{display:none;position:absolute;inset:0;z-index:2147483646;background:#08060a;color:#fff;place-items:center;text-align:center}
+          #plu-svg-error-inner{max-width:760px;padding:32px;font-family:system-ui}
+          #plu-svg-error-title{font-size:24px;font-weight:700}
+          #plu-svg-error-message{margin-top:12px;opacity:.65;font-size:14px;line-height:1.5;white-space:pre-wrap}
+          #plu-debug-console{position:absolute;z-index:2147483647;left:10px;right:10px;bottom:10px;height:260px;display:flex;flex-direction:column;background:rgba(8,8,12,.97);color:#eee;border:1px solid rgba(255,255,255,.18);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.55);font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;overflow:hidden}
+          #plu-debug-console.hidden{display:none}
+          #plu-debug-console .plu-debug-head{min-height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;background:rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.12);user-select:none}
+          #plu-debug-console .plu-debug-title{font-weight:700;flex:1}
+          #plu-debug-console button{border:0;border-radius:6px;padding:5px 9px;background:rgba(255,255,255,.10);color:#fff;cursor:pointer;font:inherit}
+          #plu-debug-console button:hover{background:rgba(255,255,255,.18)}
+          #plu-debug-console .plu-debug-log{flex:1;min-height:0;overflow:auto;padding:6px 0;white-space:pre-wrap;word-break:break-word}
+          #plu-debug-console .plu-debug-row{padding:4px 10px;border-bottom:1px solid rgba(255,255,255,.05)}
+          #plu-debug-console .plu-debug-time{opacity:.45;margin-right:8px}
+          #plu-debug-console .plu-debug-level{font-weight:700;margin-right:8px}
+          #plu-debug-console .plu-debug-error{background:rgba(255,60,60,.12)}
+          #plu-debug-console .plu-debug-warn{background:rgba(255,190,50,.08)}
+          #plu-debug-console .plu-debug-info{background:rgba(80,150,255,.06)}
+          #plu-debug-toggle{position:absolute;z-index:2147483647;right:12px;bottom:12px;display:none;border:0;border-radius:7px;padding:7px 10px;background:#111;color:#fff;font:12px ui-monospace,monospace;cursor:pointer}
+        </xhtml:style>
+      </xhtml:head>
+      <xhtml:body>
+        <xhtml:div id="plu-root">
+          <xhtml:div id="plu-loader">
+            <xhtml:div id="plu-loader-inner">
+              <xhtml:div id="plu-loader-title">Plutonium<xhtml:span id="plu-loader-dot"/></xhtml:div>
+              <xhtml:div id="plu-loader-sub">Loading Plutonium Network…</xhtml:div>
+            </xhtml:div>
+          </xhtml:div>
+          <xhtml:div id="plu-svg-error">
+            <xhtml:div id="plu-svg-error-inner">
+              <xhtml:div id="plu-svg-error-title">Plutonium failed to load</xhtml:div>
+              <xhtml:div id="plu-svg-error-message"/>
+            </xhtml:div>
+          </xhtml:div>
+        </xhtml:div>
+
+        <xhtml:script><![CDATA[
+(() => {
+  'use strict';
+
+  const PLU_ROOT='https://cdn.jsdelivr.net/gh/Plutonium-Net/Plutonium@main/';
+  const GCDN_ROOT='https://cdn.jsdelivr.net/gh/Plutonium-Net/Plutonium-GCDN@main/';
+  const RAW_INDEX=PLU_ROOT+'index.html';
+  const root=document.getElementById('plu-root');
+
+
+  const SVG_NS='http://www.w3.org/2000/svg';
+  const XHTML_NS='http://www.w3.org/1999/xhtml';
+  const svgDocumentElement=document.documentElement;
+
+  function xhtmlRoot(){
+    return document.getElementsByTagNameNS(XHTML_NS,'html')[0] || null;
+  }
+  function xhtmlHead(){
+    const html=xhtmlRoot();
+    return html ? Array.from(html.children).find(el => el.localName === 'head') || null : null;
+  }
+  function xhtmlBody(){
+    const html=xhtmlRoot();
+    return html ? Array.from(html.children).find(el => el.localName === 'body') || null : null;
+  }
+
+  const nativeCreateElementNS=document.createElementNS.bind(document);
+
+  try {
+    document.createElement=function(name, options){
+      const tag=String(name).toLowerCase();
+      return nativeCreateElementNS(XHTML_NS, tag);
+    };
+  } catch (_) {}
+
+  try {
+    Object.defineProperty(document,'documentElement',{
+      configurable:true,
+      get:xhtmlRoot
+    });
+  } catch (_) {}
+
+  try {
+    Object.defineProperty(document,'head',{
+      configurable:true,
+      get:xhtmlHead
+    });
+  } catch (_) {}
+
+  try {
+    Object.defineProperty(document,'body',{
+      configurable:true,
+      get:xhtmlBody
+    });
+  } catch (_) {}
+
+  try {
+    const innerHTMLDescriptor=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
+    const nativeInnerHTMLGetter=innerHTMLDescriptor && innerHTMLDescriptor.get;
+    const nativeInnerHTMLSetter=innerHTMLDescriptor && innerHTMLDescriptor.set;
+
+    if (nativeInnerHTMLGetter && nativeInnerHTMLSetter) {
+      Object.defineProperty(Element.prototype,'innerHTML',{
+        configurable:true,
+        enumerable:innerHTMLDescriptor.enumerable,
+        get(){
+          return nativeInnerHTMLGetter.call(this);
+        },
+        set(value){
+          if (this.namespaceURI === XHTML_NS) {
+            const parser=new DOMParser();
+            const parsed=parser.parseFromString(
+              '<!doctype html><html><body><div id="__plu_html_root__">'+String(value)+'</div></body></html>',
+              'text/html'
+            );
+            const parsedRoot=parsed.getElementById('__plu_html_root__');
+            while (this.firstChild) this.removeChild(this.firstChild);
+            if (parsedRoot) {
+              Array.from(parsedRoot.childNodes).forEach(node=>{
+                this.appendChild(document.importNode(node,true));
+              });
+            }
+            return;
+          }
+          return nativeInnerHTMLSetter.call(this,value);
+        }
+      });
+    }
+  } catch (_) {}
+
+  window.__PLU_SINGLE_FILE__=true;
+  window.__PLU_SVG__=true;
+  window.__PLU_FOREIGNOBJECT__=true;
+  window.__PLU_STATIC_ROOT__=PLU_ROOT;
+  window.__PLU_GCDN_ROOT__=GCDN_ROOT;
+  window.__PLU_REQUIRE_STATIC_ROOT__=true;
+
+  window.__PLU_DISABLE_AI__=true;
+  window.__PLU_DISABLE_PROXY__=true;
+  window.__PLU_DISABLE_CLOUD_GAMING__=true;
+  window.__PLU_DISABLE_VMS__=true;
+  window.__PLU_DISABLE_ACCOUNTS__=true;
+  window.__PLU_DISABLE_UPDATE_REQUIRED__=true;
+
+  window.PlutoniumStore={
+    currentUser:null,
+    onAuthChange(fn){try{fn(null)}catch(_){}return()=>{}},
+    async getDoc(){return null},
+    async setDoc(){return false},
+    async deleteDoc(){return false},
+    async signOut(){},
+    async init(){return null}
+  };
+
+  const nativeFetch=window.fetch.bind(window);
+
+  function escapeHtml(value){
+    return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function rewriteGcdn(value){
+    try{
+      const u=new URL(value,location.href);
+      if(u.hostname.toLowerCase()==='g.cdn.plutoniumnet.work')
+        return GCDN_ROOT.replace(/\/$/,'')+u.pathname+u.search+u.hash;
+    }catch(_){}
+    return value;
+  }
+
+  function jsDelivrUrl(value,base=PLU_ROOT){
+    if(!value)return value;
+    const v=String(value).trim();
+    if(/^(data:|blob:|javascript:|mailto:|tel:|#)/i.test(v))return v;
+
+    try{
+      const github=new URL(v,base);
+      const host=github.hostname.toLowerCase(),path=github.pathname;
+      if(host==='raw.githubusercontent.com'&&/^\/plutonium-net\/plutonium\//i.test(path))
+        return PLU_ROOT+path.replace(/^\/plutonium-net\/plutonium\//i,'')+github.search+github.hash;
+      if(host==='raw.githubusercontent.com'&&/^\/plutonium-net\/plutonium-gcdn\//i.test(path))
+        return GCDN_ROOT+path.replace(/^\/plutonium-net\/plutonium-gcdn\//i,'')+github.search+github.hash;
+      const m=path.match(/^\/plutonium-net\/(plutonium|plutonium-gcdn)\/(?:blob|raw)\/[^/]+\/(.*)$/i);
+      if(host==='github.com'&&m){
+        const baseRoot=m[1].toLowerCase()==='plutonium'?PLU_ROOT:GCDN_ROOT;
+        return baseRoot+m[2]+github.search+github.hash;
+      }
+    }catch(_){}
+
+    try{
+      const jsd=new URL(v);
+      if(jsd.hostname.toLowerCase()==='cdn.jsdelivr.net'&&!/^\/(?:gh|npm|combine)(?:\/|$)/i.test(jsd.pathname)){
+        const p=jsd.pathname.replace(/^\/+/,'');
+        if(p)return PLU_ROOT+p+jsd.search+jsd.hash;
+      }
+    }catch(_){}
+
+    if(/^https?:\/\/unpkg\.com\//i.test(v)){
+      const u=new URL(v);
+      return 'https://cdn.jsdelivr.net/npm/'+u.pathname.replace(/^\/+/,'')+u.search+u.hash;
+    }
+    if(/^https?:\/\/cdnjs\.cloudflare\.com\//i.test(v)){
+      const u=new URL(v);
+      return 'https://cdn.jsdelivr.net'+u.pathname+u.search+u.hash;
+    }
+    if(/^https?:\/\/g\.cdn\.plutoniumnet\.work(?:\/|$)/i.test(v))return rewriteGcdn(v);
+    if(/^https?:\/\//i.test(v))return v;
+    if(v.startsWith('/'))return PLU_ROOT+v.slice(1);
+    return new URL(v,base).href;
+  }
+
+  window.fetch=function(input,init){
+    const raw=input instanceof Request?input.url:String(input||'');
+    if(/\/js\/cloud\.js(?:\?|$)|\/data\/cloud\.json(?:\?|$)|\/css\/cloud\.css(?:\?|$)|\/img\/cloud\//i.test(raw))
+      return Promise.reject(new Error('Cloud Gaming is disabled in this build.'));
+    if(typeof input==='string')return nativeFetch(jsDelivrUrl(input),init);
+    if(input instanceof Request){
+      const rewritten=jsDelivrUrl(input.url);
+      if(rewritten!==input.url)return nativeFetch(new Request(rewritten,input),init);
+    }
+    return nativeFetch(input,init);
+  };
+
+  function isDisabledResource(value){
+    const raw=String(value||'');
+    return /\/js\/(?:ai|cloud|vms)\.js(?:\?|$)/i.test(raw)||
+      /\/data\/cloud\.json(?:\?|$)/i.test(raw)||
+      /\/css\/cloud\.css(?:\?|$)/i.test(raw)||
+      /\/img\/cloud\//i.test(raw)||
+      /\/(?:bridge|core|runtime)\//i.test(raw)||
+      /\/js\/net\.js(?:\?|$)/i.test(raw);
+  }
+
+  try{
+    if(navigator.serviceWorker&&navigator.serviceWorker.register)
+      navigator.serviceWorker.register=()=>Promise.reject(new Error('Service workers are disabled in this Plutonium SVG build.'));
+  }catch(_){}
+
+  function rewriteCssText(css,cssUrl){
+    return css.replace(/url\(\s*(['"]?)(?!data:|blob:|https?:\/\/)([^'")]+)\1\s*\)/gi,
+      (m,q,path)=>`url("${jsDelivrUrl(path.trim(),cssUrl)}")`)
+      .replace(/url\(\s*(['"]?)(https?:\/\/unpkg\.com\/[^'")]+|https?:\/\/cdnjs\.cloudflare\.com\/[^'")]+)\1\s*\)/gi,
+      (m,q,url)=>`url("${jsDelivrUrl(url)}")`);
+  }
+
+  async function fetchText(url,options={}){
+    const resolved=jsDelivrUrl(url);
+    const response=await nativeFetch(resolved,{credentials:'omit',...options});
+    if(!response.ok)throw new Error(`HTTP ${response.status} while loading ${url}`);
+    return response.text();
+  }
+
+  function disableServerUi(doc){
+    const disabled=new Set(['pluto://ai','pluto://cloud','pluto://vms']);
+    doc.querySelectorAll('[data-local-uri]').forEach(el=>{
+      if(!disabled.has(el.getAttribute('data-local-uri')))return;
+      el.setAttribute('aria-disabled','true');
+      el.dataset.pluDisabled='true';
+      el.style.opacity='.45';
+      el.style.cursor='not-allowed';
+    });
+    doc.querySelectorAll('#btn-user-page,#home-acct-signin-cta,#acct-google-btn,#acct-github-btn,#acct-auth-submit')
+      .forEach(el=>el.setAttribute('aria-disabled','true'));
+  }
+
+  let gameDocumentLoadId=0;
+
+  function escapeGameError(message){
+    return String(message).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function rewriteLegacyGameUrl(value){
+    if(typeof value!=='string')return value;
+    try{
+      const url=new URL(value,GCDN_ROOT);
+      if(url.hostname.toLowerCase()==='g.cdn.plutoniumnet.work')
+        return GCDN_ROOT.replace(/\/$/,'')+url.pathname+url.search+url.hash;
+    }catch(_){}
+    return value;
+  }
+
+  function gameDocumentBridgeSource(){
+    const legacyHost=JSON.stringify('g.cdn.plutoniumnet.work');
+    const cdnRoot=JSON.stringify(GCDN_ROOT.replace(/\/$/,''));
+    return `(()=>{'use strict';
+      const legacyHost=${legacyHost},cdnRoot=${cdnRoot};
+      const rewrite=value=>{
+        if(typeof value!=='string')return value;
+        try{
+          const url=new URL(value,document.baseURI);
+          if(url.hostname.toLowerCase()===legacyHost)return cdnRoot+url.pathname+url.search+url.hash;
+        }catch(_){}
+        return value;
+      };
+      const nativeFetch=window.fetch.bind(window);
+      window.fetch=(input,init)=>{
+        if(typeof input==='string')return nativeFetch(rewrite(input),init);
+        if(input instanceof Request){
+          const u=rewrite(input.url);
+          if(u!==input.url)return nativeFetch(new Request(u,input),init);
+        }
+        return nativeFetch(input,init);
+      };
+      const nativeOpen=XMLHttpRequest.prototype.open;
+      XMLHttpRequest.prototype.open=function(method,url){
+        const args=Array.prototype.slice.call(arguments);args[1]=rewrite(String(url));
+        return nativeOpen.apply(this,args);
+      };
+      const patch=(proto,prop)=>{
+        const d=Object.getOwnPropertyDescriptor(proto,prop);
+        if(!d||!d.set||!d.get)return;
+        Object.defineProperty(proto,prop,{configurable:true,enumerable:d.enumerable,get:d.get,
+          set(v){d.set.call(this,rewrite(String(v)))}
+        });
+      };
+      [[HTMLScriptElement.prototype,'src'],[HTMLLinkElement.prototype,'href'],
+       [HTMLImageElement.prototype,'src'],[HTMLSourceElement.prototype,'src'],
+       [HTMLVideoElement.prototype,'src'],[HTMLAudioElement.prototype,'src'],
+       [HTMLIFrameElement.prototype,'src']].forEach(([p,x])=>{try{patch(p,x)}catch(_){}});
+      const nativeSetAttribute=Element.prototype.setAttribute;
+      Element.prototype.setAttribute=function(name,value){
+        if(/^(src|href|poster|data)$/i.test(name))value=rewrite(String(value));
+        return nativeSetAttribute.call(this,name,value);
+      };
+      try{
+        if(navigator.serviceWorker)navigator.serviceWorker.register=()=>Promise.reject(new Error('Service workers are unavailable in this game viewer.'));
+      }catch(_){}
+    })();`;
+  }
+
+  async function loadGameDocument(url,iframe){
+    if(!iframe||!url)return false;
+    console.log('[Plutonium SVG] loadGameDocument:',url);
+    const requestId=++gameDocumentLoadId;
+    const gameUrl=jsDelivrUrl(url,GCDN_ROOT);
+    iframe.removeAttribute('src');
+    iframe.srcdoc='<!doctype html><html><body style="margin:0;background:#050505;color:#fff;font:14px system-ui;display:grid;place-items:center;height:100vh">Loading game…</body></html>';
+    try{
+      const response=await nativeFetch(gameUrl,{credentials:'omit'});
+      if(!response.ok)throw new Error(`HTTP ${response.status}`);
+      const source=await response.text();
+      if(requestId!==gameDocumentLoadId||!iframe.isConnected)return false;
+      const parser=new DOMParser(),doc=parser.parseFromString(source,'text/html');
+      const gameBase=new URL('./',gameUrl).href;
+      const existingBase=doc.querySelector('head base[href]');
+      if(existingBase)existingBase.setAttribute('href',rewriteLegacyGameUrl(new URL(existingBase.getAttribute('href'),gameBase).href));
+      else{
+        const base=doc.createElement('base');base.href=gameBase;doc.head.prepend(base);
+      }
+      doc.querySelectorAll('[src],[href],[poster],[data]').forEach(el=>{
+        ['src','href','poster','data'].forEach(a=>{
+          if(!el.hasAttribute(a))return;
+          const v=el.getAttribute(a),r=rewriteLegacyGameUrl(v);
+          if(r!==v)el.setAttribute(a,r);
+        });
+      });
+      doc.querySelectorAll('[srcset]').forEach(el=>{
+        const v=el.getAttribute('srcset');
+        if(v&&/g\.cdn\.plutoniumnet\.work/i.test(v))
+          el.setAttribute('srcset',v.replace(/(?:https?:)?\/\/g\.cdn\.plutoniumnet\.work/gi,GCDN_ROOT.replace(/\/$/,'')));
+      });
+      doc.querySelectorAll('style').forEach(style=>{
+        if(/g\.cdn\.plutoniumnet\.work/i.test(style.textContent))
+          style.textContent=style.textContent.replace(/(?:https?:)?\/\/g\.cdn\.plutoniumnet\.work/gi,GCDN_ROOT.replace(/\/$/,''));
+      });
+      const bridge=doc.createElement('script');bridge.textContent=gameDocumentBridgeSource();
+      const base=doc.querySelector('head base');if(base)base.insertAdjacentElement('afterend',bridge);else doc.head.prepend(bridge);
+      iframe.srcdoc='<!doctype html>\n'+doc.documentElement.outerHTML;
+      return true;
+    }catch(error){
+      if(requestId!==gameDocumentLoadId||!iframe.isConnected)return false;
+      console.error('[Plutonium SVG] Game document failed:',gameUrl,error);
+      iframe.srcdoc='<!doctype html><html><body style="margin:0;background:#050505;color:#fff;font:14px system-ui;display:grid;place-items:center;height:100vh"><div>Unable to load this game.<br><small>'+escapeGameError(error.message||error)+'</small></div></body></html>';
+      return false;
+    }
+  }
+
+  window.__PLU_LOAD_GAME_DOCUMENT__=loadGameDocument;
+  window.__PLU_CLEAR_GAME_DOCUMENT__=iframe=>{
+    gameDocumentLoadId++;
+    if(!iframe)return;
+    iframe.removeAttribute('srcdoc');
+    iframe.src='about:blank';
+  };
+
+  function createXhtml(tag){
+    return document.createElementNS('http://www.w3.org/1999/xhtml',tag);
+  }
+
+  function adoptStyle(text){
+    const style=createXhtml('style');
+    style.textContent=text;
+    root.appendChild(style);
+    return style;
+  }
+
+  async function installBackgroundFrame(){
+    const frame=document.getElementById('browser-bg-frame');
+    if(!frame)return;
+    try{
+      const bgUrl=PLU_ROOT+'bg.html';
+      const source=await fetchText(bgUrl);
+      const parser=new DOMParser();
+      const doc=parser.parseFromString(source,'text/html');
+      doc.querySelectorAll('link[href]').forEach(link=>{
+        const href=link.getAttribute('href');if(href)link.setAttribute('href',jsDelivrUrl(href,bgUrl));
+      });
+      for(const link of Array.from(doc.querySelectorAll('link[rel="stylesheet"]'))){
+        const href=link.getAttribute('href');if(!href)continue;
+        const cssUrl=jsDelivrUrl(href,bgUrl);
+        const css=await fetchText(cssUrl);
+        const style=doc.createElement('style');style.textContent=rewriteCssText(css,cssUrl);link.replaceWith(style);
+      }
+      for(const script of Array.from(doc.querySelectorAll('script[src]'))){
+        const src=jsDelivrUrl(script.getAttribute('src'),bgUrl);
+        const text=await fetchText(src);
+        const replacement=doc.createElement('script');replacement.textContent=text+`\n//# sourceURL=${src}`;script.replaceWith(replacement);
+      }
+      const blob=new Blob(['<!doctype html>\n'+doc.documentElement.outerHTML],{type:'text/html'});
+      const blobUrl=URL.createObjectURL(blob);
+      frame.src=blobUrl;
+      frame.addEventListener('load',()=>setTimeout(()=>URL.revokeObjectURL(blobUrl),5000),{once:true});
+    }catch(e){console.warn('[Plutonium SVG] Background failed to load:',e)}
+  }
+
+  function workerClassForScript(scriptUrl){
+    const NativeWorker=window.Worker;
+    if(typeof NativeWorker!=='function')return NativeWorker;
+    return class PlutoniumWorker extends NativeWorker{
+      constructor(url,options){
+        let resolved=url;
+        try{
+          const raw=url instanceof URL?url.href:String(url);
+          if(!/^(?:data:|blob:|https?:|wss?:)/i.test(raw)){
+            resolved=new URL(raw,scriptUrl).href;
+          }
+        }catch(_){}
+        console.log('[Plutonium SVG] Worker:',String(resolved));
+        super(resolved,options);
+      }
+    };
+  }
+
+  function sharedWorkerClassForScript(scriptUrl){
+    const NativeSharedWorker=window.SharedWorker;
+    if(typeof NativeSharedWorker!=='function')return NativeSharedWorker;
+    return class PlutoniumSharedWorker extends NativeSharedWorker{
+      constructor(url,nameOrOptions,options){
+        let resolved=url;
+        try{
+          const raw=url instanceof URL?url.href:String(url);
+          if(!/^(?:data:|blob:|https?:|wss?:)/i.test(raw)){
+            resolved=new URL(raw,scriptUrl).href;
+          }
+        }catch(_){}
+        console.log('[Plutonium SVG] SharedWorker:',String(resolved));
+        super(resolved,nameOrOptions,options);
+      }
+    };
+  }
+
+  window.__PLU_WORKER_CLASS_FOR_SCRIPT__=workerClassForScript;
+  window.__PLU_SHARED_WORKER_CLASS_FOR_SCRIPT__=sharedWorkerClassForScript;
+
+  const __pluNativeWorker=window.Worker;
+  const __pluNativeSharedWorker=window.SharedWorker;
+  window.__PLU_CURRENT_SCRIPT_URL__='';
+  window.Worker=class PlutoniumWorker extends __pluNativeWorker{
+    constructor(url,options){
+      const base=window.__PLU_CURRENT_SCRIPT_URL__||location.href;
+      let resolved=url;
+      try{
+        const raw=url instanceof URL?url.href:String(url);
+        if(!/^(?:data:|blob:|https?:|wss?:)/i.test(raw))resolved=new URL(raw,base).href;
+      }catch(_){}
+      console.log('[Plutonium SVG] Worker:',String(resolved));
+      super(resolved,options);
+    }
+  };
+  if(typeof __pluNativeSharedWorker==='function'){
+    window.SharedWorker=class PlutoniumSharedWorker extends __pluNativeSharedWorker{
+      constructor(url,nameOrOptions,options){
+        const base=window.__PLU_CURRENT_SCRIPT_URL__||location.href;
+        let resolved=url;
+        try{
+          const raw=url instanceof URL?url.href:String(url);
+          if(!/^(?:data:|blob:|https?:|wss?:)/i.test(raw))resolved=new URL(raw,base).href;
+        }catch(_){}
+        console.log('[Plutonium SVG] SharedWorker:',String(resolved));
+        super(resolved,nameOrOptions,options);
+      }
+    };
+  }
+
+  async function executeScript(code,absolute,attrs={}){
+    const script=createXhtml('script');
+    for(const [k,v] of Object.entries(attrs))if(k!=='src')script.setAttribute(k,v);
+    window.__PLU_CURRENT_SCRIPT_URL__=absolute;
+    script.textContent=code+`\n//# sourceURL=${absolute}`;
+    root.appendChild(script);
+    return script;
+  }
+
+  async function boot(){
+    const source=await fetchText(RAW_INDEX);
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(source,'text/html');
+
+    doc.querySelectorAll('script[src]').forEach(script=>{
+      const src=script.getAttribute('src')||'';
+      if(/\/(pwa|version)\.js(?:\?|$)/i.test(src))script.remove();
+      if(/\/(cloud-store|cloud-store-config|account|onboarding-redirect)\.js(?:\?|$)/i.test(src))script.remove();
+      if(isDisabledResource(src))script.remove();
+    });
+
+    doc.querySelectorAll('img[src],source[src]').forEach(el=>{
+      if(/\/img\/cloud\//i.test(el.getAttribute('src')||''))
+        el.setAttribute('src','data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=');
+    });
+    doc.querySelectorAll('link[rel="preconnect"]').forEach(x=>x.remove());
+
+    doc.querySelectorAll('link[rel="stylesheet"]').forEach(link=>{
+      const href=link.getAttribute('href')||'';
+      if(/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome/i.test(href))
+        link.setAttribute('href','https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css');
+    });
+    doc.querySelectorAll('script[src]').forEach(script=>{
+      const src=script.getAttribute('src')||'';
+      if(/cdnjs\.cloudflare\.com\/ajax\/libs\/marked\/9\.1\.6\/marked\.min\.js/i.test(src))
+        script.setAttribute('src','https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js');
+      if(/unpkg\.com\/draggabilly@2\.2\.0\/dist\/draggabilly\.pkgd\.min\.js/i.test(src))
+        script.setAttribute('src','https://cdn.jsdelivr.net/npm/draggabilly@2.2.0/dist/draggabilly.pkgd.min.js');
+    });
+
+    disableServerUi(doc);
+
+    doc.querySelectorAll('[src]').forEach(el=>{
+      const a=el.getAttribute('src');if(!a||/^data:|^blob:|^javascript:/i.test(a))return;
+      el.setAttribute('src',jsDelivrUrl(a));
+    });
+    doc.querySelectorAll('link[href]').forEach(el=>{
+      const a=el.getAttribute('href');if(!a||/^data:|^blob:|^javascript:/i.test(a))return;
+      el.setAttribute('href',jsDelivrUrl(a));
+    });
+    doc.querySelectorAll('[srcset]').forEach(el=>{
+      const raw=el.getAttribute('srcset')||'';
+      el.setAttribute('srcset',raw.split(',').map(part=>{
+        const bits=part.trim().split(/\s+/);bits[0]=jsDelivrUrl(bits[0]);return bits.join(' ');
+      }).join(', '));
+    });
+
+    document.title=doc.title||'Plutonium Network';
+
+    /* The SVG already has its own XHTML head/body host. Import only
+       Plutonium's body markup into the dedicated application root. */
+    const imported=doc.createElement('div');
+    imported.innerHTML=doc.body?doc.body.innerHTML:'';
+    while(imported.firstChild){
+      const node=imported.firstChild;
+      if(node.nodeType===1&&node.id==='plu-loader'){imported.removeChild(node);continue}
+      root.appendChild(document.adoptNode(node));
+    }
+
+    /* Stylesheets are loaded explicitly because the host document is SVG. */
+    for(const link of Array.from(doc.querySelectorAll('link[rel="stylesheet"]'))){
+      const href=link.getAttribute('href');
+      if(!href||/\/css\/cloud\.css(?:\?|$)/i.test(href))continue;
+      try{
+        const cssUrl=jsDelivrUrl(href);
+        const css=await fetchText(cssUrl);
+        adoptStyle(rewriteCssText(css,cssUrl));
+      }catch(e){console.warn('[Plutonium SVG] Stylesheet failed:',href,e)}
+    }
+
+    const scripts=Array.from(doc.querySelectorAll('script[src]'));
+    for(const oldScript of scripts){
+      const src=oldScript.getAttribute('src');if(!src)continue;
+      const absolute=jsDelivrUrl(src);
+
+      if(isDisabledResource(absolute)||/\/(pwa|version|cloud-store|cloud-store-config|account|onboarding-redirect)\.js(?:\?|$)/i.test(absolute)){
+        continue;
+      }
+
+      try{
+        const code=await fetchText(absolute);
+        let patched=code;
+
+        if(/\/js\/games\.js(?:\?|$)/i.test(absolute)){
+          patched=patched
+            .replaceAll('https://g.cdn.plutoniumnet.work',GCDN_ROOT.replace(/\/$/,''))
+            .replaceAll('https://cdn.jsdelivr.net/gh/Plutonium-Net/Plutonium-GCDN@main/',GCDN_ROOT)
+            .replace('target.postMessage(message, GAME_ORIGIN);',"target.postMessage(message, '*');")
+            .replace(/els\s*\[\s*['"]game-iframe['"]\s*\]\s*\.src\s*=\s*pendingGameUrl\s*;?/g,"void window.__PLU_LOAD_GAME_DOCUMENT__(pendingGameUrl, els['game-iframe']);")
+            .replace(/els\s*\[\s*['"]game-iframe['"]\s*\]\s*\.src\s*=\s*['"]{2}\s*;?/g,"window.__PLU_CLEAR_GAME_DOCUMENT__(els['game-iframe']);");
+        }
+
+        if(/\/js\/navigation\.js(?:\?|$)/i.test(absolute))
+          patched='window.coreReady=true;window.bridgeReady=true;\n'+patched.replace(/\bcoreReady\b/g,'window.coreReady').replace(/\bbridgeReady\b/g,'window.bridgeReady');
+
+        if(/\/js\/workspaces\.js(?:\?|$)/i.test(absolute)){
+          patched=patched
+            .replace("async function activate(key, suffix = '') {","async function activate(key, suffix = '') {\nif(window.__PLU_DISABLE_AI__&&key==='ai')return false;if(window.__PLU_DISABLE_CLOUD_GAMING__&&key==='cloud')return false;if(window.__PLU_DISABLE_VMS__&&key==='vms')return false;")
+            .replace("link.href = bundle.css;","link.href = new URL(bundle.css, window.__PLU_STATIC_ROOT__).href;")
+            .replace("script.src = src;","script.src = /^https?:\\/\\//i.test(src) ? src : new URL(src, window.__PLU_STATIC_ROOT__).href;")
+            .replace("activeWorkspaceStyle.href = 'css/workspace.css';","activeWorkspaceStyle.href = new URL('css/workspace.css', window.__PLU_STATIC_ROOT__).href;")
+            .replace("sharedGlassStyle.href = 'css/glass.css?v=3';","sharedGlassStyle.href = new URL('css/glass.css?v=3', window.__PLU_STATIC_ROOT__).href;");
+        }
+
+        await executeScript(patched,absolute,Object.fromEntries(Array.from(oldScript.attributes).map(a=>[a.name,a.value])));
+      }catch(e){console.warn('[Plutonium SVG] Optional/static script failed:',absolute,e)}
+    }
+
+    window.__PLU_PROXY_DISABLED__=true;
+    window.coreReady=true;
+    window.__PLU_CORE_READY__=true;
+    window.getNetUrl=url=>url;
+    window.getNetEngine=()=>{try{return localStorage.getItem('plu_net_mode')||'none'}catch(_){return'none'}};
+    window.setNetEngine=engine=>{try{localStorage.setItem('plu_net_mode',String(engine||'none'))}catch(_){}try{if(typeof syncEngineButtons==='function')syncEngineButtons()}catch(_){}};
+    window.initNetStack=async()=>false;
+    window.runNetInit=()=>false;
+
+    document.addEventListener('click',e=>{
+      const target=e.target.closest?.('[data-local-uri]');if(!target)return;
+      const uri=target.getAttribute('data-local-uri');
+      if(!['pluto://ai','pluto://cloud','pluto://vms'].includes(uri))return;
+      e.preventDefault();e.stopImmediatePropagation();
+    },true);
+
+    await installBackgroundFrame();
+
+    const loader=document.getElementById('plu-loader');if(loader)loader.remove();
+    initConsole();
+  }
+
+  function initConsole(){
+    if(document.getElementById('plu-debug-console'))return;
+    const markup=`<div id="plu-debug-console"><div class="plu-debug-head"><span class="plu-debug-title">Plutonium Console Intercept</span><span id="plu-debug-count">0 events</span><button id="plu-debug-clear" type="button">Clear</button><button id="plu-debug-hide" type="button">Hide</button></div><div id="plu-debug-log" class="plu-debug-log"></div></div><button id="plu-debug-toggle" type="button">Show Console</button>`;
+    const holder=createXhtml('div');holder.innerHTML=markup;
+    while(holder.firstChild)root.appendChild(holder.firstChild);
+
+    const panel=document.getElementById('plu-debug-console'),logBox=document.getElementById('plu-debug-log'),
+      countBox=document.getElementById('plu-debug-count'),hide=document.getElementById('plu-debug-hide'),
+      show=document.getElementById('plu-debug-toggle'),clear=document.getElementById('plu-debug-clear');
+
+    clear.onclick=()=>{logBox.textContent='';window.__plu_debug_count=0;countBox.textContent='0 events'};
+    hide.onclick=()=>{panel.classList.add('hidden');show.style.display='block'};
+    show.onclick=()=>{panel.classList.remove('hidden');show.style.display='none'};
+    if(window.__plu_debug_queue)window.__plu_debug_queue.forEach(x=>addLogEntry(x.level,x.args));
+  }
+
+  window.__plu_debug_queue=[];
+  window.__plu_debug_count=0;
+
+  const original={log:console.log,info:console.info,warn:console.warn,error:console.error,debug:console.debug};
+
+  function stringify(value){
+    if(typeof value==='string')return value;
+    if(value instanceof Error)return value.stack||(value.name+': '+value.message);
+    try{
+      const seen=[];
+      return JSON.stringify(value,(key,val)=>{
+        if(typeof val==='object'&&val!==null){
+          if(seen.indexOf(val)!==-1)return'[Circular]';seen.push(val);
+        }
+        if(typeof val==='function')return'[Function '+(val.name||'anonymous')+']';
+        return val;
+      },2);
+    }catch(_){try{return String(value)}catch(_){return'[Unprintable]'}}
+  }
+
+  function addLogEntry(level,args){
+    window.__plu_debug_count++;
+    const count=document.getElementById('plu-debug-count'),box=document.getElementById('plu-debug-log');
+    if(count)count.textContent=window.__plu_debug_count+(window.__plu_debug_count===1?' event':' events');
+    if(!box){window.__plu_debug_queue.push({level,args});return}
+    const row=createXhtml('div');row.className='plu-debug-row plu-debug-'+(level==='error'?'error':level==='warn'?'warn':'info');
+    const time=createXhtml('span');time.className='plu-debug-time';time.textContent=new Date().toLocaleTimeString();
+    const label=createXhtml('span');label.className='plu-debug-level';label.textContent='['+level.toUpperCase()+']';
+    const message=createXhtml('span');message.textContent=Array.prototype.map.call(args,stringify).join(' ');
+    row.append(time,label,message);box.appendChild(row);box.scrollTop=box.scrollHeight;
+  }
+
+  ['log','info','warn','error','debug'].forEach(name=>{
+    console[name]=function(){
+      const args=Array.prototype.slice.call(arguments);addLogEntry(name,args);
+      try{if(typeof original[name]==='function')original[name].apply(console,args)}catch(_){}
+    };
+  });
+
+  window.addEventListener('error',event=>addLogEntry('error',['UNCAUGHT ERROR:',event.message||'Unknown error',event.filename?('at '+event.filename+':'+event.lineno+':'+event.colno):'',event.error||'']),true);
+  window.addEventListener('unhandledrejection',event=>addLogEntry('error',['UNHANDLED PROMISE REJECTION:',event.reason||'Unknown rejection']),true);
+  addLogEntry('info',['SVG/foreignObject console interception active.']);
+
+  boot().catch(error=>{
+    console.error('[Plutonium SVG] bootstrap failed:',error);
+    const loader=document.getElementById('plu-loader');
+    if(loader)loader.remove();
+    const errorBox=document.getElementById('plu-svg-error'),msg=document.getElementById('plu-svg-error-message');
+    msg.textContent=error?.stack||error?.message||String(error);
+    errorBox.style.display='grid';
+    initConsole();
+  });
+})();
+        ]]></xhtml:script>
+      </xhtml:body>
+    </xhtml:html>
+  </foreignObject>
+</svg>
